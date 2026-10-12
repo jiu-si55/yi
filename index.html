@@ -3,19 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>段码屏循环点亮 · 八个小灯</title>
+<title>段码屏 · 八个小灯</title>
 <style>
   :root {
     --led-off: #1b1e24;
-    --led-loop: #ff3b3b;
-    --led-loop-glow: rgba(255, 59, 59, 0.85);
-    --led-select: #ffe14d;
-    --led-select-glow: rgba(255, 225, 77, 0.95);
+    --led-on: #ffe14d;
+    --led-on-glow: rgba(255, 225, 77, 0.95);
     --bg: #0d1117;
     --panel: #161b22;
     --border: #30363d;
     --text: #e6edf3;
     --muted: #8b949e;
+    --accent: #1f6feb;
   }
   * { box-sizing: border-box; }
   body {
@@ -25,7 +24,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 28px;
+    gap: 26px;
     background: radial-gradient(circle at 50% 30%, #10161f, var(--bg));
     color: var(--text);
     font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
@@ -60,7 +59,11 @@
     border: 2px solid #2a3038;
     box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
     transform: rotate(var(--a)) translateY(-128px);
+    cursor: pointer;
     transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .led:hover {
+    border-color: #5a6470;
   }
   .led .label {
     position: absolute;
@@ -73,21 +76,15 @@
     color: #4b5563;
     transform: rotate(calc(-1 * var(--a)));
     transition: color 0.15s ease;
+    pointer-events: none;
   }
-  .led.on-loop {
-    background: var(--led-loop);
-    border-color: #ff7a7a;
-    box-shadow: 0 0 16px var(--led-loop-glow), 0 0 34px var(--led-loop-glow),
-                inset 0 0 8px rgba(255,255,255,0.25);
-  }
-  .led.on-loop .label { color: #fff; }
-  .led.on-select {
-    background: var(--led-select);
+  .led.on {
+    background: var(--led-on);
     border-color: #fff3a1;
-    box-shadow: 0 0 22px var(--led-select-glow), 0 0 52px var(--led-select-glow),
+    box-shadow: 0 0 22px var(--led-on-glow), 0 0 52px var(--led-on-glow),
                 inset 0 0 10px rgba(255,255,255,0.55);
   }
-  .led.on-select .label { color: #1a1a00; }
+  .led.on .label { color: #1a1a00; }
   .status {
     font-size: 15px;
     color: var(--text);
@@ -98,28 +95,35 @@
     min-width: 240px;
     text-align: center;
   }
-  .status b { color: var(--led-select); }
+  .status b { color: var(--led-on); }
   .controls {
     display: flex;
     gap: 10px;
-    align-items: center;
     flex-wrap: wrap;
     justify-content: center;
+    max-width: 420px;
   }
-  input {
-    width: 120px;
-    padding: 10px 12px;
-    font-size: 16px;
-    text-align: center;
-    border-radius: 8px;
+  .num-btn {
+    width: 46px;
+    height: 46px;
+    font-size: 18px;
+    font-weight: 600;
+    border-radius: 10px;
     border: 1px solid var(--border);
-    background: var(--panel);
+    background: #21262d;
     color: var(--text);
-    outline: none;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
   }
-  input:focus { border-color: #58a6ff; }
-  button {
-    padding: 10px 18px;
+  .num-btn:hover { background: #30363d; }
+  .num-btn:active { transform: scale(0.94); }
+  .num-btn.active {
+    background: var(--led-on);
+    border-color: #fff3a1;
+    color: #1a1a00;
+  }
+  .reset-btn {
+    padding: 12px 20px;
     font-size: 15px;
     border-radius: 8px;
     border: 1px solid var(--border);
@@ -128,9 +132,7 @@
     cursor: pointer;
     transition: background 0.15s ease;
   }
-  button:hover { background: #30363d; }
-  button.primary { background: #1f6feb; border-color: #1f6feb; }
-  button.primary:hover { background: #388bfd; }
+  .reset-btn:hover { background: #30363d; }
   .hint {
     color: var(--muted);
     font-size: 13px;
@@ -139,37 +141,37 @@
 </head>
 <body>
   <div>
-    <h1>段码屏循环点亮</h1>
-    <div class="subtitle">八个小灯 · 循环跑动 · 输入数字点亮对应小灯一秒</div>
+    <h1>段码屏 · 八个小灯</h1>
+    <div class="subtitle">点击数字或小灯本身，对应的小灯亮起</div>
   </div>
 
   <div class="stage" id="stage"></div>
 
-  <div class="status">当前：<b id="statusText">循环点亮中…</b></div>
+  <div class="status">当前：<b id="statusText">未点亮</b></div>
 
-  <div class="controls">
-    <input id="numInput" type="text" inputmode="numeric" maxlength="1" placeholder="1–8">
-    <button class="primary" id="btnLight">点亮</button>
-    <button id="btnLoop">恢复循环</button>
-  </div>
-  <div class="hint">输入 1–8 之间的数字，对应位置的小灯会点亮 1 秒</div>
+  <div class="controls" id="buttons"></div>
+  <button class="reset-btn" id="resetBtn">全部熄灭</button>
+
+  <div class="hint">点击 1–8 数字按钮或对应小灯即可点亮；再次点击同一个会熄灭</div>
 
 <script>
 (function () {
   const COUNT = 8;
   const stage = document.getElementById('stage');
+  const buttons = document.getElementById('buttons');
   const statusText = document.getElementById('statusText');
-  const numInput = document.getElementById('numInput');
-  const btnLight = document.getElementById('btnLight');
-  const btnLoop = document.getElementById('btnLoop');
+  const resetBtn = document.getElementById('resetBtn');
 
-  // 创建 8 个小灯，围绕圆心均匀分布
   const leds = [];
+  const numBtns = [];
+
+  // 创建 8 个小灯，围绕圆心均匀分布（从顶部开始）
   for (let i = 0; i < COUNT; i++) {
     const el = document.createElement('div');
     el.className = 'led';
-    const angle = i * (360 / COUNT) - 90; // 从顶部开始
+    const angle = i * (360 / COUNT) - 90;
     el.style.setProperty('--a', angle + 'deg');
+    el.title = '点亮第 ' + (i + 1) + ' 号小灯';
     const label = document.createElement('span');
     label.className = 'label';
     label.textContent = i + 1;
@@ -178,65 +180,33 @@
     leds.push(el);
   }
 
-  let current = 0;
-  let loopTimer = null;
-  let selectTimer = null;
-  let paused = false;
-
-  function clearAll() {
-    leds.forEach(l => l.classList.remove('on-loop', 'on-select'));
+  // 创建 8 个数字按钮
+  for (let i = 0; i < COUNT; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'num-btn';
+    btn.textContent = i + 1;
+    buttons.appendChild(btn);
+    numBtns.push(btn);
   }
 
-  function showLoop(index) {
-    clearAll();
-    leds[index].classList.add('on-loop');
+  let selected = null; // 当前点亮的小灯索引，null 表示全部熄灭
+
+  function render() {
+    leds.forEach((l, i) => l.classList.toggle('on', i === selected));
+    numBtns.forEach((b, i) => b.classList.toggle('active', i === selected));
+    statusText.textContent = selected === null ? '未点亮' : '第 ' + (selected + 1) + ' 号小灯亮起';
   }
 
-  function startLoop() {
-    stopTimers();
-    paused = false;
-    clearAll();
-    current = 0;
-    showLoop(current);
-    statusText.textContent = '循环点亮中…';
-    loopTimer = setInterval(() => {
-      current = (current + 1) % COUNT;
-      showLoop(current);
-    }, 450);
+  function toggle(i) {
+    selected = (selected === i) ? null : i;
+    render();
   }
 
-  function stopTimers() {
-    if (loopTimer) { clearInterval(loopTimer); loopTimer = null; }
-    if (selectTimer) { clearTimeout(selectTimer); selectTimer = null; }
-  }
+  leds.forEach((el, i) => el.addEventListener('click', () => toggle(i)));
+  numBtns.forEach((btn, i) => btn.addEventListener('click', () => toggle(i)));
+  resetBtn.addEventListener('click', () => { selected = null; render(); });
 
-  function lightOne(n) { // n: 0-based index
-    stopTimers();
-    paused = true;
-    clearAll();
-    leds[n].classList.add('on-select');
-    statusText.textContent = '点亮第 ' + (n + 1) + ' 号小灯';
-    selectTimer = setTimeout(() => {
-      if (paused) startLoop();
-    }, 1000);
-  }
-
-  function handleInput() {
-    const v = parseInt(numInput.value.trim(), 10);
-    if (isNaN(v) || v < 1 || v > COUNT) {
-      statusText.textContent = '请输入 1–' + COUNT + ' 之间的数字';
-      return;
-    }
-    lightOne(v - 1);
-  }
-
-  btnLight.addEventListener('click', handleInput);
-  btnLoop.addEventListener('click', startLoop);
-  numInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') handleInput();
-  });
-
-  startLoop();
+  render();
 })();
 </script>
 </body>
